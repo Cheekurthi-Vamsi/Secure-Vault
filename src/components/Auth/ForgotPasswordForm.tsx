@@ -1,0 +1,393 @@
+import React, { useState } from 'react'
+import { motion } from 'framer-motion'
+import { Shield, ArrowLeft, User, Calendar, Mail, Eye, EyeOff, Lock } from 'lucide-react'
+import { useTheme } from '../../contexts/ThemeContext'
+
+interface ForgotPasswordFormProps {
+  onSuccess: (data: any) => void
+  onBack: () => void
+}
+
+export function ForgotPasswordForm({ onSuccess, onBack }: ForgotPasswordFormProps) {
+  const [step, setStep] = useState<'verify' | 'reset'>('verify')
+  const [formData, setFormData] = useState({
+    email: '',
+    firstName: '',
+    lastName: '',
+    dateOfBirth: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [securityData, setSecurityData] = useState<{
+    userId: string
+    securityQuestion: string
+  } | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const { isDark } = useTheme()
+
+  const handleVerifyDetails = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    try {
+      const response = await fetch('http://localhost:3001/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          dateOfBirth: formData.dateOfBirth
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message)
+      }
+
+      setSecurityData(data)
+      setStep('reset')
+    } catch (err: any) {
+      setError(err.message || 'Verification failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (formData.newPassword !== formData.confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    if (formData.newPassword.length < 6) {
+      setError('Password must be at least 6 characters long')
+      return
+    }
+
+    // Pass to security question verification
+    onSuccess({
+      userId: securityData?.userId,
+      securityQuestion: securityData?.securityQuestion,
+      newPassword: formData.newPassword
+    })
+  }
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  return (
+    <div className={`min-h-screen flex items-center justify-center p-4 relative z-10 ${
+      isDark 
+        ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900' 
+        : 'bg-gradient-to-br from-pink-50 via-blue-50 to-white'
+    }`}>
+      {/* Animated Background */}
+      <div className="absolute inset-0">
+        <div className={`absolute top-20 left-10 w-72 h-72 rounded-full blur-3xl animate-pulse ${
+          isDark ? 'bg-blue-500/20' : 'bg-pink-200/30'
+        }`} />
+        <div className={`absolute top-40 right-20 w-96 h-96 rounded-full blur-3xl animate-pulse delay-1000 ${
+          isDark ? 'bg-purple-500/20' : 'bg-blue-200/30'
+        }`} />
+        <div className={`absolute bottom-20 left-1/3 w-80 h-80 rounded-full blur-3xl animate-pulse delay-2000 ${
+          isDark ? 'bg-pink-500/20' : 'bg-purple-200/30'
+        }`} />
+      </div>
+
+      <motion.div
+        className="w-full max-w-md relative z-10"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+      >
+        <div className={`backdrop-blur-2xl rounded-3xl p-8 shadow-2xl border relative overflow-hidden ${
+          isDark 
+            ? 'bg-gray-800/30 border-gray-600/30' 
+            : 'bg-white/30 border-pink-200/30'
+        }`}>
+          <div className={`absolute inset-0 pointer-events-none ${
+            isDark 
+              ? 'bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10' 
+              : 'bg-gradient-to-br from-pink-200/20 via-transparent to-blue-200/20'
+          }`} />
+          
+          <div className="relative z-10">
+            <button
+              onClick={onBack}
+              className={`mb-6 p-2 rounded-lg transition-all duration-200 ${
+                isDark 
+                  ? 'bg-gray-700/30 hover:bg-gray-600/40 text-gray-300 hover:text-gray-200' 
+                  : 'bg-white/20 hover:bg-white/30 text-gray-600 hover:text-gray-700'
+              }`}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+
+            <div className="text-center mb-8">
+              <motion.div
+                className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-pink-400 to-blue-400 mb-6 shadow-2xl"
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                transition={{ type: "spring", stiffness: 300 }}
+              >
+                <Shield className="w-10 h-10 text-white" />
+              </motion.div>
+              <h1 className={`text-3xl font-bold mb-2 ${
+                isDark ? 'text-gray-200' : 'text-gray-700'
+              }`}>
+                {step === 'verify' ? 'Forgot Password' : 'Reset Password'}
+              </h1>
+              <p className={`mb-4 ${
+                isDark ? 'text-gray-300' : 'text-gray-600'
+              }`}>
+                {step === 'verify' 
+                  ? 'Please verify your account details to continue'
+                  : 'Enter your new password'
+                }
+              </p>
+            </div>
+
+            {step === 'verify' ? (
+              <form onSubmit={handleVerifyDetails} className="space-y-6">
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${
+                    isDark ? 'text-gray-300' : 'text-gray-600'
+                  }`}>
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+                      isDark ? 'text-gray-400' : 'text-gray-500'
+                    }`} />
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      className={`w-full pl-12 pr-4 py-4 backdrop-blur-xl border rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all duration-200 ${
+                        isDark 
+                          ? 'bg-gray-700/30 border-gray-600/30 text-gray-200 placeholder-gray-400' 
+                          : 'bg-white/20 border-pink-200/30 text-gray-700 placeholder-gray-500'
+                      }`}
+                      placeholder="Enter your email"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${
+                      isDark ? 'text-gray-300' : 'text-gray-600'
+                    }`}>
+                      First Name
+                    </label>
+                    <div className="relative">
+                      <User className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+                        isDark ? 'text-gray-400' : 'text-gray-500'
+                      }`} />
+                      <input
+                        type="text"
+                        value={formData.firstName}
+                        onChange={(e) => handleInputChange('firstName', e.target.value)}
+                        className={`w-full pl-12 pr-4 py-4 backdrop-blur-xl border rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all duration-200 ${
+                          isDark 
+                            ? 'bg-gray-700/30 border-gray-600/30 text-gray-200 placeholder-gray-400' 
+                            : 'bg-white/20 border-pink-200/30 text-gray-700 placeholder-gray-500'
+                        }`}
+                        placeholder="First name"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${
+                      isDark ? 'text-gray-300' : 'text-gray-600'
+                    }`}>
+                      Last Name
+                    </label>
+                    <div className="relative">
+                      <User className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+                        isDark ? 'text-gray-400' : 'text-gray-500'
+                      }`} />
+                      <input
+                        type="text"
+                        value={formData.lastName}
+                        onChange={(e) => handleInputChange('lastName', e.target.value)}
+                        className={`w-full pl-12 pr-4 py-4 backdrop-blur-xl border rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all duration-200 ${
+                          isDark 
+                            ? 'bg-gray-700/30 border-gray-600/30 text-gray-200 placeholder-gray-400' 
+                            : 'bg-white/20 border-pink-200/30 text-gray-700 placeholder-gray-500'
+                        }`}
+                        placeholder="Last name"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${
+                    isDark ? 'text-gray-300' : 'text-gray-600'
+                  }`}>
+                    Date of Birth
+                  </label>
+                  <div className="relative">
+                    <Calendar className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+                      isDark ? 'text-gray-400' : 'text-gray-500'
+                    }`} />
+                    <input
+                      type="date"
+                      value={formData.dateOfBirth}
+                      onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                      className={`w-full pl-12 pr-4 py-4 backdrop-blur-xl border rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all duration-200 ${
+                        isDark 
+                          ? 'bg-gray-700/30 border-gray-600/30 text-gray-200' 
+                          : 'bg-white/20 border-pink-200/30 text-gray-700'
+                      }`}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-red-100/50 border border-red-300/50 rounded-xl p-4 text-red-600 text-sm backdrop-blur-xl text-center"
+                  >
+                    {error}
+                  </motion.div>
+                )}
+
+                <motion.button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-4 bg-gradient-to-r from-pink-400 to-blue-400 text-white font-semibold rounded-xl hover:from-pink-500 hover:to-blue-500 focus:outline-none focus:ring-2 focus:ring-pink-400 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl hover:shadow-pink-300/25"
+                  whileHover={{ scale: loading ? 1 : 1.02 }}
+                  whileTap={{ scale: loading ? 1 : 0.98 }}
+                >
+                  {loading ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Verifying...</span>
+                    </div>
+                  ) : (
+                    'Verify Details'
+                  )}
+                </motion.button>
+              </form>
+            ) : (
+              <form onSubmit={handleResetPassword} className="space-y-6">
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${
+                    isDark ? 'text-gray-300' : 'text-gray-600'
+                  }`}>
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+                      isDark ? 'text-gray-400' : 'text-gray-500'
+                    }`} />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={formData.newPassword}
+                      onChange={(e) => handleInputChange('newPassword', e.target.value)}
+                      className={`w-full pl-12 pr-12 py-4 backdrop-blur-xl border rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all duration-200 ${
+                        isDark 
+                          ? 'bg-gray-700/30 border-gray-600/30 text-gray-200 placeholder-gray-400' 
+                          : 'bg-white/20 border-pink-200/30 text-gray-700 placeholder-gray-500'
+                      }`}
+                      placeholder="Enter new password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className={`absolute right-4 top-1/2 transform -translate-y-1/2 transition-colors ${
+                        isDark 
+                          ? 'text-gray-400 hover:text-gray-200' 
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${
+                    isDark ? 'text-gray-300' : 'text-gray-600'
+                  }`}>
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+                      isDark ? 'text-gray-400' : 'text-gray-500'
+                    }`} />
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={formData.confirmPassword}
+                      onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                      className={`w-full pl-12 pr-12 py-4 backdrop-blur-xl border rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all duration-200 ${
+                        isDark 
+                          ? 'bg-gray-700/30 border-gray-600/30 text-gray-200 placeholder-gray-400' 
+                          : 'bg-white/20 border-pink-200/30 text-gray-700 placeholder-gray-500'
+                      }`}
+                      placeholder="Confirm new password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className={`absolute right-4 top-1/2 transform -translate-y-1/2 transition-colors ${
+                        isDark 
+                          ? 'text-gray-400 hover:text-gray-200' 
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-red-100/50 border border-red-300/50 rounded-xl p-4 text-red-600 text-sm backdrop-blur-xl text-center"
+                  >
+                    {error}
+                  </motion.div>
+                )}
+
+                <motion.button
+                  type="submit"
+                  className="w-full py-4 bg-gradient-to-r from-pink-400 to-blue-400 text-white font-semibold rounded-xl hover:from-pink-500 hover:to-blue-500 focus:outline-none focus:ring-2 focus:ring-pink-400 focus:ring-offset-2 transition-all duration-200 shadow-2xl hover:shadow-pink-300/25"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Continue to Security Question
+                </motion.button>
+              </form>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
